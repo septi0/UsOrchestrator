@@ -13,6 +13,8 @@ Allwed host formats:
     - hostname:port
     - hostname:port/password
     - hostname/password
+
+Note: Using the password is not recommended, as it will be visible in the process list.
 """
 
 class Remote:
