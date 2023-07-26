@@ -115,9 +115,9 @@ class UsOrchestratorManager:
         parser = RawConfigParser()
         config_files = [
             *glob.glob(os.path.dirname(os.path.realpath(__file__)) + f'/../config/{config_type}.d/*.conf'),
-            os.path.expanduser(f'~/.config/usorchestrator/{config_type}.conf'),
             f'/etc/usorchestrator/{config_type}.conf',
             f'/etc/opt/usorchestrator/{config_type}.conf',
+            os.path.expanduser(f'~/.config/usorchestrator/{config_type}.conf'),
         ]
 
         parser.read(config_files)

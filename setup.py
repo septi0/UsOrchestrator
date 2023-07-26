@@ -24,6 +24,7 @@ setup(
     ],
     classifiers=[
         "Programming Language :: Python :: 3",
+        "Operating System :: POSIX :: Linux",
         "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
         "Topic :: Utilities",
     ],

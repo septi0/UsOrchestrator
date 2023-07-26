@@ -3,7 +3,7 @@ import argparse
 from usorchestrator.manager import UsOrchestratorManager
 from usorchestrator.exceptions import UsOrchestratorConfigError, ActionError, RemoteCmdError
 
-APP_NAME="usorchestrator"
+APP_NAME="UsOrchestrator"
 APP_VERSION = "0.3.1"
 
 def main():
