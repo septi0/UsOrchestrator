@@ -1,5 +1,6 @@
 
 from setuptools import setup
+from usorchestrator.info import APP_NAME, APP_VERSION, APP_DESCRIPTION
 
 with open("README.md", "r") as f:
     long_description = f.read()
@@ -8,9 +9,9 @@ with open("requirements.txt") as f:
     requirements = [line.strip() for line in f]
 
 setup(
-    name="UsOrchestrator",
-    version="0.3.1",
-    description='A tool to automate system administration tasks on multi-hosts environments',
+    name=APP_NAME,
+    version=APP_VERSION,
+    description=APP_DESCRIPTION,
     long_description=long_description,
     long_description_content_type="text/markdown",
     license="GPLv3",

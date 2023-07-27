@@ -69,7 +69,7 @@ class Action:
                 if not transfer:
                     continue
                 
-                output = remote_cmd('scp', [transfer.src, transfer.dst], host.local, host.host, host.user, host.port, host.password)
+                output = remote_cmd('scp', (transfer.src, transfer.dst), host.local, host.host, host.user, host.port, host.password)
                 # output overwrites
                 if output['return_code'] == 0: output['stdout'] = 'Transfer ok'
                 else: output['stderr'] = 'Transfer failed: ' + output['stderr']
@@ -83,9 +83,9 @@ class Action:
 
                 if self.type == 'test':
                     command = command.format(host=host.host, user=host.user, port=host.port)
-                    output = remote_cmd('ssh-bash', [command], True)
+                    output = remote_cmd('ssh-bash', (command,), True)
                 else:
-                    output = remote_cmd('ssh-bash', [command], host.local, host.host, host.user, host.port, host.password)
+                    output = remote_cmd('ssh-bash', (command,), host.local, host.host, host.user, host.port, host.password)
 
                 runned_actions.append(ActionExec(passed_condition=True, stdout=output['stdout'], stderr=output['stderr'], return_code=output['return_code']))
 

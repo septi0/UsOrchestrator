@@ -2,7 +2,7 @@ import subprocess
 import shlex
 from usorchestrator.exceptions import RemoteCmdError
 
-def remote_cmd(protocol: str, action: list[str], local:bool, host:str = '', user:str = 'root', port:int = 22, password: str = None) -> dict:
+def remote_cmd(protocol: str, action: tuple[str], local:bool, host:str = '', user:str = 'root', port:int = 22, password: str = None) -> dict:
     remote_cmd_prefix = []
     ssh_opts = []
 
