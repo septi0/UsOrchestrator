@@ -20,6 +20,7 @@ Hosts can also be organized into groups for easier orchestration.
 ## Software requirements
 
 - python3
+- ssh
 - sshpass (if using passwords for remote hosts - not recommended)
 
 ## Installation
