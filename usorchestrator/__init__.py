@@ -2,15 +2,15 @@ import sys
 import argparse
 from usorchestrator.manager import UsOrchestratorManager
 from usorchestrator.exceptions import UsOrchestratorConfigError, ActionError, RemoteCmdError
-from usorchestrator.info import APP_NAME, APP_VERSION, APP_DESCRIPTION
+from usorchestrator.info import __app_name__, __version__, __description__, __author__, __author_email__, __author_url__, __license__
 
 def main():
    # get args from command line
-   parser = argparse.ArgumentParser(description=APP_DESCRIPTION)
+   parser = argparse.ArgumentParser(description=__description__)
 
    parser.add_argument('--log', dest='log_file', help='Log file', default=None)
    parser.add_argument('--log-level', dest='log_level', help='Log level', default='INFO', choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'])
-   parser.add_argument('--version', action='version', version=f'{APP_NAME} {APP_VERSION}')
+   parser.add_argument('--version', action='version', version=f'{__app_name__} {__version__}')
 
    subparsers = parser.add_subparsers(title="Commands", dest="command")
 
