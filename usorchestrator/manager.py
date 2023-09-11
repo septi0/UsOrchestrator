@@ -61,13 +61,19 @@ class UsOrchestratorManager:
         actions: list[Action] = []
         data: dict = {}
 
-        if params.get('hosts'): hosts += self._process_hosts(params['hosts'])
-        if params.get('hosts_groups'): hosts += self._process_hosts_groups(params['hosts_groups'])
+        if params.get('hosts'):
+            hosts += self._process_hosts(params['hosts'])
+        if params.get('hosts_groups'):
+            hosts += self._process_hosts_groups(params['hosts_groups'])
 
-        if params.get('commands'): actions += self._process_commands(params['commands'])
-        if params.get('routines'): actions += self._process_routines(params['routines'])
-        if params.get('tests'): actions += self._process_tests(params['tests'])
-        if params.get('transfers'): actions += self._process_transfers(params['transfers'])
+        if params.get('commands'):
+            actions += self._process_commands(params['commands'])
+        if params.get('routines'):
+            actions += self._process_routines(params['routines'])
+        if params.get('tests'):
+            actions += self._process_tests(params['tests'])
+        if params.get('transfers'):
+            actions += self._process_transfers(params['transfers'])
 
         if not hosts:
             print('At least one of the following options for hosts identification must be provided: "--host", "--hosts-group"')
@@ -77,7 +83,8 @@ class UsOrchestratorManager:
             print('At least one of the following options for actions execution must be provided: "--command", "--routine", "--test", "--transfer"')
             sys.exit(1)
 
-        if params.get('data'): data = self._parse_data(params['data'])
+        if params.get('data'):
+            data = self._parse_data(params['data'])
 
         self._handle_actions(hosts, actions, data)
         sys.exit(0)
@@ -117,7 +124,7 @@ class UsOrchestratorManager:
         return logger
 
     def _parse_config(self, config_type: str) -> RawConfigParser:
-        parser = RawConfigParser()
+        parser = RawConfigParser(comment_prefixes=None)
         config_files = [
             # search in project directory
             *glob.glob(os.path.dirname(os.path.realpath(__file__)) + f'/../config/{config_type}.d/*.conf'),
@@ -170,7 +177,8 @@ class UsOrchestratorManager:
     def _process_hosts(self, raw_hosts: list[str]) -> list:
         hosts = []
 
-        for host in raw_hosts: hosts.append(Remote(host))
+        for host in raw_hosts:
+            hosts.append(Remote(host))
 
         self._logger.debug(f'Discovered hosts: "{raw_hosts}"')
 
@@ -183,7 +191,8 @@ class UsOrchestratorManager:
         for hosts_group in hosts_groups:
             try:
                 raw_hosts = shlex.split(self._hosts_config.get(hosts_group, 'hosts', fallback=''))
-                for host in raw_hosts: hosts.append(Remote(host))
+                for host in raw_hosts:
+                    hosts.append(Remote(host))
             except (NoSectionError, NoOptionError) as e:
                 print(f'Could not extract hosts: {e}')
                 self._logger.exception(e, exc_info=True)
@@ -221,7 +230,8 @@ class UsOrchestratorManager:
 
     def _process_routine(self, routine: str) -> Action:
         try:
-            if not self._routines_config.has_section(routine): raise NoSectionError(routine)
+            if not self._routines_config.has_section(routine):
+                raise NoSectionError(routine)
 
             action = Action('routine', routine)
             action.setSpliceLocalhost(self._routines_config.getboolean(routine, 'splice_localhost', fallback=False))
@@ -317,8 +327,10 @@ class UsOrchestratorManager:
 
     # handle individual action
     def _handle_action(self, host: Remote, action: Action, data: dict = None) -> None:
-        if action.type == 'test': log_msg = f'Running "{action.name}" {action.type} for "{host.host}"'
-        else: log_msg = f'Running "{action.name}" {action.type} on "{host.host}"'
+        if action.type == 'test':
+            log_msg = f'Running "{action.name}" {action.type} for "{host.host}"'
+        else:
+            log_msg = f'Running "{action.name}" {action.type} on "{host.host}"'
 
         self._logger.debug(log_msg)
         sys.stdout.write(('* ' + log_msg + ' ...\r'))
@@ -333,7 +345,8 @@ class UsOrchestratorManager:
             sys.stdout.write('\033[K')
 
             if action_exec.passed_condition:
-                if action.type == 'test': log_msg = f'"{action.name}" {action.type} for "{host.host}"'
+                if action.type == 'test':
+                    log_msg = f'"{action.name}" {action.type} for "{host.host}"'
                 else:
                     log_msg = f'"{action.name}" {action.type} on "{host.host}"'
 
