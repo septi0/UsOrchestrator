@@ -24,7 +24,7 @@ def main():
    orchestrate_parser.add_argument('--routine', dest='routines', help='Routine to be executed on target hosts', action='append')
    orchestrate_parser.add_argument('--test', dest='tests', help='Test to be executed against target hosts', action='append')
    orchestrate_parser.add_argument('--transfer', dest='transfers', help='Transfer to be executed on target hosts (<local-path>:<remote-path>)', action='append')
-   orchestrate_parser.add_argument('--data', dest='data', help='Data file', action='append')
+   orchestrate_parser.add_argument('--data', dest='data', help='Placeholder data to be used in commands', action='append')
 
    args = parser.parse_args()
 
