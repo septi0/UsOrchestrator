@@ -1,10 +1,13 @@
-def wrap_dash(header: str, stdout: str, stderr: str) -> str:
+def wrap_dash(header: str, stdout: list, stderr: list) -> str:
     ret = ''
 
-    input = stdout
-    if stderr:
-        if input: input += '\n' + stderr
-        else: input += stderr
+    stdout_str = '\n'.join(stdout)
+    stderr_str = '\n'.join(stderr)
+
+    input = stdout_str
+    if stderr_str:
+        if input: input += '\n' + stderr_str
+        else: input += stderr_str
         
     input = input.splitlines()
     header = header + ':'

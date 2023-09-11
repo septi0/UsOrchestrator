@@ -45,37 +45,24 @@ class Action:
         return [action.name for action in self.actions]
 
     def getConditionName(self) -> str:
-        if self.condition: return self.condition.name
+        if self.condition:
+            return self.condition.name
 
         return ''
 
     def runAction(self, host: Remote, data: dict = None) -> ActionExec:
+        # agregator action
         if self.condition:
             condition_runned_action = self.condition.runAction(host, data)
+
             if not condition_runned_action.passed_condition or condition_runned_action.return_code != 0:
-                return ActionExec(passed_condition=False)
+                condition_runned_action.update(passed_condition=False)
+                return condition_runned_action
 
-        runned_actions = []
+        stdout: list = []
+        stderr: list = []
 
-        if self.actions:
-            for action in self.actions:
-                if not action:
-                    continue
-                
-                runned_actions.append(action.runAction(host, data))
-
-        if self.transfers:
-            for transfer in self.transfers:
-                if not transfer:
-                    continue
-                
-                output = remote_cmd('scp', (transfer.src, transfer.dst), host.local, host.host, host.user, host.port, host.password)
-                # output overwrites
-                if output['return_code'] == 0: output['stdout'] = 'Transfer ok'
-                else: output['stderr'] = 'Transfer failed: ' + output['stderr']
-
-                runned_actions.append(ActionExec(passed_condition=True, stdout=output['stdout'], stderr=output['stderr'], return_code=output['return_code']))
-
+        # end leaf action
         if self.commands:
             for command in self.commands:
                 if not command:
@@ -85,36 +72,62 @@ class Action:
                     'host': host.host,
                     'user': host.user,
                     'port': host.port
-                    }
+                }
 
                 if data:
                     cmd_data.update(data)
 
                 command = self._formatCommand(command, cmd_data)
 
-                # if placeholders left, raise error
-                if self._hasPlaceholders(command):
-                    raise ActionError(f'Placeholders left. Not all data was provided for action "{self.name}" {self.type}')
-
                 if self.type == 'test':
                     output = remote_cmd('ssh-bash', (command,), True)
                 else:
                     output = remote_cmd('ssh-bash', (command,), host.local, host.host, host.user, host.port, host.password)
 
-                runned_actions.append(ActionExec(passed_condition=True, stdout=output['stdout'], stderr=output['stderr'], return_code=output['return_code']))
+                stdout.append(output['stdout'])
+                stderr.append(output['stderr'])
 
-        if not runned_actions: raise ActionError(f'No action attached to "{self.name}" {self.type}')
+                if output['return_code'] != 0:
+                    return ActionExec(stdout=stdout, stderr=stderr, return_code=output['return_code'])
 
-        return runned_actions[-1]
+        # end leaf action
+        if self.transfers:
+            for transfer in self.transfers:
+                if not transfer:
+                    continue
+                
+                output = remote_cmd('scp', (transfer.src, transfer.dst), host.local, host.host, host.user, host.port, host.password)
+                # output overwrites
+                if output['return_code'] == 0:
+                    output['stdout'] = 'Transfer ok'
+                else:
+                    output['stderr'] = 'Transfer failed: ' + output['stderr']
 
-    def _hasPlaceholders(self, command:str) -> bool:
-        if '{{PLACEHOLDER:' in command: return True
+                stdout.append(output['stdout'])
+                stderr.append(output['stderr'])
 
-        return False
+                if output['return_code'] != 0:
+                    return ActionExec(stdout=stdout, stderr=stderr, return_code=output['return_code'])
+
+        # agregator action
+        if self.actions:
+            for action in self.actions:
+                if not action:
+                    continue
+
+                runned_action = action.runAction(host, data)
+
+                if not runned_action.passed_condition or runned_action.return_code != 0:
+                    return runned_action
+                
+                stdout += runned_action.stdout
+                stderr += runned_action.stderr
+
+        return ActionExec(stdout=stdout, stderr=stderr, return_code=0)
     
     def _formatCommand(self, command:str, placeholders:dict) -> str:
         # placeholder format is {{PLACEHOLDER:variablename}}
         for placeholder in placeholders.keys():
-            command = command.replace('{{PLACEHOLDER:' + placeholder + '}}', placeholders[placeholder])
+            command = command.replace('{{PLACEHOLDER:' + placeholder + '}}', str(placeholders[placeholder]))
 
         return command
