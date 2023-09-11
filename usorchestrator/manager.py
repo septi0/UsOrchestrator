@@ -237,6 +237,7 @@ class UsOrchestratorManager:
             action.setSpliceLocalhost(self._routines_config.getboolean(routine, 'splice_localhost', fallback=False))
             action.addCommand(self._routines_config.get(routine, 'command', fallback='').strip())
             action.addTransfer(self._routines_config.get(routine, 'transfer', fallback=''))
+            action.setPlaceholders(shlex.split(self._routines_config.get(routine, 'placeholders', fallback='')))
             
             # add condition action (only one of iftest, ifroutine, ifcommand option is supported, not multiple)
             if self._routines_config.has_option(routine, 'iftest'):
