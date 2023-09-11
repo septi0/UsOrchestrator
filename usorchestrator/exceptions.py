@@ -1,5 +1,4 @@
-class UsOrchestratorConfigError(Exception):
-    pass
+
 
 class ActionError(Exception):
     pass

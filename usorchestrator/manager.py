@@ -9,9 +9,11 @@ from usorchestrator.action import Action
 from usorchestrator.remote import Remote
 from usorchestrator.action_transfer import ActionTransfer
 from usorchestrator.wrap_dash import wrap_dash
-from usorchestrator.exceptions import UsOrchestratorConfigError
 
-__all__ = ['UsOrchestratorManager']
+__all__ = ['UsOrchestratorManager', 'UsOrchestratorConfigError']
+
+class UsOrchestratorConfigError(Exception):
+    pass
 
 class UsOrchestratorManager:
     def __init__(self, params: dict) -> None:
@@ -57,6 +59,7 @@ class UsOrchestratorManager:
     def _do_orchestrate(self, params: dict[any]) -> None:
         hosts: list[Remote] = []
         actions: list[Action] = []
+        data: dict = {}
 
         if params.get('hosts'): hosts += self._process_hosts(params['hosts'])
         if params.get('hosts_groups'): hosts += self._process_hosts_groups(params['hosts_groups'])
@@ -74,7 +77,9 @@ class UsOrchestratorManager:
             print('At least one of the following options for actions execution must be provided: "--command", "--routine", "--test", "--transfer"')
             sys.exit(1)
 
-        self._handle_actions(hosts, actions)
+        if params.get('data'): data = self._parse_data(params['data'])
+
+        self._handle_actions(hosts, actions, data)
         sys.exit(0)
 
     def _cleanup(self) -> None:
@@ -89,7 +94,7 @@ class UsOrchestratorManager:
             "CRITICAL": logging.CRITICAL,
         }
 
-        format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+        format:str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 
         if not log_level in levels:
             log_level = "INFO"
@@ -114,10 +119,20 @@ class UsOrchestratorManager:
     def _parse_config(self, config_type: str) -> RawConfigParser:
         parser = RawConfigParser()
         config_files = [
+            # search in project directory
             *glob.glob(os.path.dirname(os.path.realpath(__file__)) + f'/../config/{config_type}.d/*.conf'),
+
+            # search in /etc/usorchestrator
             f'/etc/usorchestrator/{config_type}.conf',
+            *glob.glob(f'/etc/usorchestrator/{config_type}.d/*.conf'),
+
+            # search in /etc/opt/usorchestrator
             f'/etc/opt/usorchestrator/{config_type}.conf',
+            *glob.glob(f'/etc/opt/usorchestrator/{config_type}.d/*.conf'),
+
+            # search in ~/.config/usorchestrator
             os.path.expanduser(f'~/.config/usorchestrator/{config_type}.conf'),
+            *glob.glob(os.path.expanduser(f'~/.config/usorchestrator/{config_type}.d/*.conf')),
         ]
 
         parser.read(config_files)
@@ -126,6 +141,30 @@ class UsOrchestratorManager:
             # raise UsorchestratorConfigError(f'Could not find any "{config_type}" configuration file')
 
         return parser
+
+    # data is provided as a list formatted in ENV style
+    # example: --data "key1=value1" --data "key2=value2"
+    def _parse_data(self, data_files: list[str]) -> dict:
+        data: dict = {}
+
+        # validate data
+        for data_file in data_files:
+            # split data into key and value
+            try:
+                key, value = data_file.split('=', 1)
+            except ValueError as e:
+                print(f'Invalid data format: {e}')
+                self._logger.exception(e, exc_info=True)
+                sys.exit(1)
+
+            # validate key
+            if not key:
+                print(f'Invalid data format: key is empty')
+                sys.exit(1)
+
+            data[key] = value
+
+        return data
 
     # process hosts
     def _process_hosts(self, raw_hosts: list[str]) -> list:
@@ -202,10 +241,11 @@ class UsOrchestratorManager:
                 if_cnf = self._routines_config.get(routine, 'ifcommand')
                 action.setCondition(self._process_command(if_cnf))
 
-            # add additional action
-            if self._routines_config.has_option(routine, 'doroutine'):
-                doroutine_cnf = self._routines_config.get(routine, 'doroutine', fallback='')
-                action.addAction(self._process_routine(doroutine_cnf))
+            # add additional actions
+            if self._routines_config.has_option(routine, 'doroutines'):
+                doroutines_cnf = shlex.split(self._routines_config.get(routine, 'doroutines', fallback=''))
+                for doroutine_cnf in doroutines_cnf:
+                    action.addAction(self._process_routine(doroutine_cnf))
         except (NoSectionError, NoOptionError) as e:
             print(f'Could not extract routine: {e}')
             self._logger.exception(e, exc_info=True)
@@ -258,7 +298,7 @@ class UsOrchestratorManager:
         return action
 
     # handle actions for all hosts
-    def _handle_actions(self, hosts: list[Remote], actions: list[Action]) -> None:
+    def _handle_actions(self, hosts: list[Remote], actions: list[Action], data: dict = None) -> None:
         self._logger.debug('Starting processing actions on all hosts')
 
         spliced_hosts = []
@@ -268,15 +308,15 @@ class UsOrchestratorManager:
                 if action.splice_localhost and host.local:
                     spliced_hosts.append(host)
                     continue
-                self._handle_action(host, action)
+                self._handle_action(host, action, data)
 
         for host in spliced_hosts:
             for action in actions:
                 if not host.local: continue
-                self._handle_action(host, action)
+                self._handle_action(host, action, data)
 
     # handle individual action
-    def _handle_action(self, host: Remote, action: Action) -> None:
+    def _handle_action(self, host: Remote, action: Action, data: dict = None) -> None:
         if action.type == 'test': log_msg = f'Running "{action.name}" {action.type} for "{host.host}"'
         else: log_msg = f'Running "{action.name}" {action.type} on "{host.host}"'
 
@@ -284,7 +324,7 @@ class UsOrchestratorManager:
         sys.stdout.write(('* ' + log_msg + ' ...\r'))
 
         try:
-            action_exec = action.runAction(host)
+            action_exec = action.runAction(host, data)
         except Exception as e:
             sys.stdout.write('\033[K')
             print(f'ERROR: {e}')

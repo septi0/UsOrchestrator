@@ -1,7 +1,7 @@
 import sys
 import argparse
-from usorchestrator.manager import UsOrchestratorManager
-from usorchestrator.exceptions import UsOrchestratorConfigError, ActionError, RemoteCmdError
+from usorchestrator.manager import UsOrchestratorManager, UsOrchestratorConfigError
+from usorchestrator.exceptions import ActionError, RemoteCmdError
 from usorchestrator.info import __app_name__, __version__, __description__, __author__, __author_email__, __author_url__, __license__
 
 def main():
@@ -14,8 +14,6 @@ def main():
 
    subparsers = parser.add_subparsers(title="Commands", dest="command")
 
-   configtest_parser = subparsers.add_parser('configtest', help='Test configuration file')
-
    show_parser = subparsers.add_parser('show', help='Show informations regarding different action types')
    show_parser.add_argument('--type', help='Show informations regarding different action types', choices=['hosts_groups', 'tests', 'routines'], required=True)
 
@@ -26,7 +24,8 @@ def main():
    orchestrate_parser.add_argument('--routine', dest='routines', help='Routine to be executed on target hosts', action='append')
    orchestrate_parser.add_argument('--test', dest='tests', help='Test to be executed against target hosts', action='append')
    orchestrate_parser.add_argument('--transfer', dest='transfers', help='Transfer to be executed on target hosts (<local-path>:<remote-path>)', action='append')
-    
+   orchestrate_parser.add_argument('--data', dest='data', help='Data file', action='append')
+
    args = parser.parse_args()
 
    if args.command is None:
@@ -41,12 +40,10 @@ def main():
    try:
       usorchestrator = UsOrchestratorManager(options)
    except UsOrchestratorConfigError as e:
-      print(f"Config error: {e}\nCheck documentation for more information on how to configure UsOrchestrator hosts or actions")
+      print(f"Config error: {e}\nCheck documentation for more information on how to configure UsOrchestrator")
       sys.exit(2)
 
-   if args.command == 'configtest':
-      print("Config OK")
-   elif args.command == 'show':
+   if args.command == 'show':
       usorchestrator.show(args.type)
    elif args.command == 'orchestrate':
       options = {}
@@ -57,5 +54,6 @@ def main():
       options['routines'] = args.routines
       options['tests'] = args.tests
       options['transfers'] = args.transfers
+      options['data'] = args.data
 
       usorchestrator.orchestrate(options)

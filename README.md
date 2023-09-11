@@ -72,7 +72,7 @@ Check "Command line arguments" section for more information about the available 
 ## Command line arguments
 
 ```
-usorchestrator [-h] [--log LOG_FILE] [--log-level {DEBUG,INFO,WARNING,ERROR,CRITICAL}] {configtest,show,orchestrate} ...
+usorchestrator [-h] [--log LOG_FILE] [--log-level {DEBUG,INFO,WARNING,ERROR,CRITICAL}] {show,orchestrate} ...
 
 options:
   -h, --help            show this help message and exit
@@ -82,8 +82,7 @@ options:
   --version             show program's version number and exit
 
 Commands:
-  {configtest,show,orchestrate}
-    configtest          Test configuration file
+  {show,orchestrate}
     show                Show informations regarding different action types
       options:
         -h, --help            show this help message and exit
@@ -133,7 +132,7 @@ Section properties:
 - `iftest` - Test that needs to be passed in order for the routine to be executed
 - `ifroutine` - Routine that needs to be executed in order for the routine to be executed
 - `ifcommand` - Command that needs to be executed in order for the routine to be executed
-- `doroutine` - Execute another routine
+- `doroutines` - Execute another routine(s)
 
 For commands / routines used in conjunction with `if` type properties, they must return status `0` in order for the routine to be executed.
 

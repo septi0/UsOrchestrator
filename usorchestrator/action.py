@@ -49,9 +49,9 @@ class Action:
 
         return ''
 
-    def runAction(self, host: Remote) -> ActionExec:
+    def runAction(self, host: Remote, data: dict = None) -> ActionExec:
         if self.condition:
-            condition_runned_action = self.condition.runAction(host)
+            condition_runned_action = self.condition.runAction(host, data)
             if not condition_runned_action.passed_condition or condition_runned_action.return_code != 0:
                 return ActionExec(passed_condition=False)
 
@@ -62,7 +62,7 @@ class Action:
                 if not action:
                     continue
                 
-                runned_actions.append(action.runAction(host))
+                runned_actions.append(action.runAction(host, data))
 
         if self.transfers:
             for transfer in self.transfers:
@@ -81,8 +81,22 @@ class Action:
                 if not command:
                     continue
 
+                cmd_data = {
+                    'host': host.host,
+                    'user': host.user,
+                    'port': host.port
+                    }
+
+                if data:
+                    cmd_data.update(data)
+
+                command = self._formatCommand(command, cmd_data)
+
+                # if placeholders left, raise error
+                if self._hasPlaceholders(command):
+                    raise ActionError(f'Placeholders left. Not all data was provided for action "{self.name}" {self.type}')
+
                 if self.type == 'test':
-                    command = command.format(host=host.host, user=host.user, port=host.port)
                     output = remote_cmd('ssh-bash', (command,), True)
                 else:
                     output = remote_cmd('ssh-bash', (command,), host.local, host.host, host.user, host.port, host.password)
@@ -92,3 +106,15 @@ class Action:
         if not runned_actions: raise ActionError(f'No action attached to "{self.name}" {self.type}')
 
         return runned_actions[-1]
+
+    def _hasPlaceholders(self, command:str) -> bool:
+        if '{{PLACEHOLDER:' in command: return True
+
+        return False
+    
+    def _formatCommand(self, command:str, placeholders:dict) -> str:
+        # placeholder format is {{PLACEHOLDER:variablename}}
+        for placeholder in placeholders.keys():
+            command = command.replace('{{PLACEHOLDER:' + placeholder + '}}', placeholders[placeholder])
+
+        return command
