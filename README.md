@@ -133,6 +133,7 @@ Section properties:
 - `ifroutine` - Routine that needs to be executed in order for the routine to be executed
 - `ifcommand` - Command that needs to be executed in order for the routine to be executed
 - `doroutines` - Execute another routine(s)
+- `variables` - Variables that can be used in commands
 
 For commands / routines used in conjunction with `if` type properties, they must return status `0` in order for the routine to be executed.
 
@@ -152,10 +153,10 @@ Section properties:
 
 The command must return status `0` in order for the test to pass.
 
-Available placeholders:
-- `{host}` - Host on which the test is executed
-- `{user}` - User defined in the configuration file
-- `{port}` - Port defined in the configuration file
+Available default variables:
+- `{target_host}` - Host on which the test is executed
+- `{target_user}` - User defined in the configuration file
+- `{target_port}` - Port defined in the configuration file
 
 ## Disclaimer
 

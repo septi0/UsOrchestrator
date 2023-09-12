@@ -6,13 +6,12 @@ def wrap_dash(header: str, stdout: list, stderr: list) -> str:
 
     input = stdout_str
     if stderr_str:
-        if input: input += '\n' + stderr_str
-        else: input += stderr_str
+        input = input + ('\n' if input else '') + stderr_str
         
     input = input.splitlines()
-    header = header + ':'
 
-    if not input: input = ' '
+    if not input:
+        input = ' '
 
     length = len(max(input, key=len))
     if(len(header) > length): length = len(header)

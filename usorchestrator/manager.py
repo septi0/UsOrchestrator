@@ -7,6 +7,7 @@ import shlex
 from configparser import RawConfigParser, NoSectionError, NoOptionError
 from usorchestrator.action import Action
 from usorchestrator.remote import Remote
+from usorchestrator.action_exec import ActionExec
 from usorchestrator.action_transfer import ActionTransfer
 from usorchestrator.wrap_dash import wrap_dash
 
@@ -233,13 +234,13 @@ class UsOrchestratorManager:
             if not self._routines_config.has_section(routine):
                 raise NoSectionError(routine)
             
-            placeholders = self._process_placeholders(self._routines_config.get(routine, 'placeholders', fallback=''))
+            variables = self._process_variables(self._routines_config.get(routine, 'variables', fallback=''))
 
             action = Action('routine', routine)
             action.setSpliceLocalhost(self._routines_config.getboolean(routine, 'splice_localhost', fallback=False))
             action.addCommand(self._routines_config.get(routine, 'command', fallback='').strip())
             action.addTransfer(self._routines_config.get(routine, 'transfer', fallback=''))
-            action.setPlaceholders(placeholders)
+            action.setVariables(variables)
             
             # add condition action (only one of iftest, ifroutine, ifcommand option is supported, not multiple)
             if self._routines_config.has_option(routine, 'iftest'):
@@ -310,24 +311,24 @@ class UsOrchestratorManager:
 
         return action
     
-    def _process_placeholders(self, placeholders: str) -> dict:
-        placeholders = shlex.split(placeholders)
+    def _process_variables(self, variables_raw: str) -> dict:
+        variables = shlex.split(variables_raw)
 
-        if not placeholders:
+        if not variables:
             return {}
         
-        placeholders_dict = {}
+        variables_dict = {}
 
-        for placeholder in placeholders:
+        for variable in variables:
             try:
-                key, value = placeholder.split('=', 1)
+                key, value = variable.split('=', 1)
             except ValueError as e:
-                key = placeholder
+                key = variable
                 value = None
 
-            placeholders_dict[key] = value
+            variables_dict[key] = value
 
-        return placeholders_dict
+        return variables_dict
 
     # handle actions for all hosts
     def _handle_actions(self, hosts: list[Remote], actions: list[Action], data: dict = None) -> None:
@@ -355,7 +356,7 @@ class UsOrchestratorManager:
             log_msg = f'Running "{action.name}" {action.type} on "{host.host}"'
 
         self._logger.debug(log_msg)
-        sys.stdout.write(('* ' + log_msg + ' ...\r'))
+        sys.stdout.write(('● ' + log_msg + ' ...\r'))
 
         try:
             action_exec = action.runAction(host, data)
@@ -366,11 +367,32 @@ class UsOrchestratorManager:
         else:
             sys.stdout.write('\033[K')
 
-            if action_exec.passed_condition:
-                if action.type == 'test':
-                    log_msg = f'"{action.name}" {action.type} for "{host.host}"'
-                else:
-                    log_msg = f'"{action.name}" {action.type} on "{host.host}"'
+            if not action_exec.passed_condition:
+                return
+            
+            if action_exec.return_code == 0:
+                log_msg = '\033[0;32m' + '● ' + '\033[0m'
+            else:
+                log_msg = '\033[0;31m' + '● ' + '\033[0m'
+            
+            if action.type == 'test':
+                log_msg += f'"{action.name}" {action.type} for "{host.host}"'
+            else:
+                log_msg += f'"{action.name}" {action.type} on "{host.host}"'
+            
+            (stdout, stderr) = self._set_action_texts(action_exec)
 
-                header = log_msg
-                print(wrap_dash(header, action_exec.stdout, action_exec.stderr))
+            header = log_msg
+            print(wrap_dash(header, stdout, stderr))
+
+    def _set_action_texts(self, action_exec: ActionExec) -> tuple:
+        stdout = action_exec.stdout
+        stderr = action_exec.stderr
+
+        if not stdout and action_exec.return_code == 0:
+            stdout = ['Return code: 0']
+
+        if not stderr and action_exec.return_code != 0:
+            stdout = [f'Return code: {action_exec.return_code}']
+
+        return (stdout, stderr)

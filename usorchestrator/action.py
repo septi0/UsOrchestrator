@@ -1,4 +1,6 @@
 import uuid
+import shlex
+import re
 from usorchestrator.remote import Remote
 from usorchestrator.action_transfer import ActionTransfer
 from usorchestrator.action_exec import ActionExec
@@ -17,7 +19,7 @@ class Action:
         self._condition: Action = data.get('condition', None)
         self._actions: list[Action] = []
         self._transfers: list[ActionTransfer] = []
-        self._placeholders: dict = {}
+        self._variables: dict = {}
 
         command = data.get('command')
         action = data.get('action')
@@ -58,8 +60,8 @@ class Action:
     def addTransfer(self, transfer:ActionTransfer) -> None:
         self._transfers.append(transfer)
 
-    def setPlaceholders(self, placeholders:dict) -> None:
-        self._placeholders = placeholders
+    def setVariables(self, variables:dict) -> None:
+        self._variables = variables
 
     def getActionsNames(self) -> list:
         return [action.name for action in self._actions]
@@ -88,11 +90,16 @@ class Action:
                 if not command:
                     continue
 
-                cmd_data = self._fill_placeholders(host, data)
-                command = self._personalize_command(command, cmd_data)
+                cmd_variables = self._define_cmd_variables(host, data)
+                command = self._add_cmd_variables(command, cmd_variables)
 
                 if self.type == 'test':
                     output = remote_cmd('ssh-bash', (command,), True)
+
+                    if output['return_code'] == 0:
+                        output['stdout'] = 'Test passed' + (':\n' + output['stdout'] if output['stdout'] else '')
+                    else:
+                        output['stderr'] = 'Test failed' + (':\n' + output['stderr'] if output['stderr'] else '')
                 else:
                     output = remote_cmd('ssh-bash', (command,), host.local, host.host, host.user, host.port, host.password)
 
@@ -111,9 +118,9 @@ class Action:
                 output = remote_cmd('scp', (transfer.src, transfer.dst), host.local, host.host, host.user, host.port, host.password)
                 # output overwrites
                 if output['return_code'] == 0:
-                    output['stdout'] = 'Transfer ok'
+                    output['stdout'] = 'Transfer completed' + (':\n' + output['stdout'] if output['stdout'] else '')
                 else:
-                    output['stderr'] = 'Transfer failed: ' + output['stderr']
+                    output['stderr'] = 'Transfer failed' + (':\n' + output['stderr'] if output['stderr'] else '')
 
                 stdout.append(output['stdout'])
                 stderr.append(output['stderr'])
@@ -135,33 +142,60 @@ class Action:
                 stdout += runned_action.stdout
                 stderr += runned_action.stderr
 
+        # filter empty stdout / stderr
+        stdout = list(filter(None, stdout))
+        stderr = list(filter(None, stderr))
+
         return ActionExec(stdout=stdout, stderr=stderr, return_code=0)
     
-    def _fill_placeholders(self, host: Remote, data: dict) -> dict:
-        default_data = {
-            'host': host.host,
-            'user': host.user,
-            'port': host.port
+    def _define_cmd_variables(self, host: Remote, data: dict) -> dict:
+        default_variables = {
+            'target_host': host.host,
+            'target_user': host.user,
+            'target_port': host.port
         }
 
-        if not self._placeholders:
-            return default_data
+        if not self._variables:
+            return default_variables
         
-        cmd_data = {**default_data}
+        cmd_variables = {**default_variables}
         
-        for (p_key, p_val) in self._placeholders.items():
-            if data.get(p_key):
-                cmd_data[p_key] = data[p_key]
-            elif p_val:
-                cmd_data[p_key] = p_val
+        for (name, default_value) in self._variables.items():
+            if data.get(name):
+                cmd_variables[name] = data[name]
+            elif default_value:
+                cmd_variables[name] = default_value
             else:
-                raise ActionError(f'Placeholder "{p_key}" must be provided')
+                raise ActionError(f'Variable "{name}" value must be provided')
 
-        return cmd_data
+        return cmd_variables
 
-    def _personalize_command(self, command: str, placeholders: dict) -> str:
-        # placeholder format is {{PLACEHOLDER:variablename}}
-        for placeholder in placeholders.keys():
-            command = command.replace('{{PLACEHOLDER:' + placeholder + '}}', str(placeholders[placeholder]))
+    def _add_cmd_variables(self, command: str, variables: dict) -> str:
+        if not variables:
+            return command
+        
+        out_command = []
 
-        return command
+        for (name, value) in variables.items():
+            if not self._valid_bash_variable_name(name):
+                raise ActionError(f'Variable "{name}" is not a valid bash variable name')
+            
+            value = str(value)
+            
+            safe_value = shlex.quote(value)
+
+            # make sure that value is quoted
+            if value == safe_value:
+                safe_value = f'"{safe_value}"'
+
+            out_command.append(f'{name}={safe_value}')
+
+        out_command.append(command)
+
+        return '\n'.join(out_command)
+    
+    def _valid_bash_variable_name(self, name: str) -> bool:
+        if not name:
+            return False
+
+        return re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', name) is not None
