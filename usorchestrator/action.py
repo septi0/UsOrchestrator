@@ -17,7 +17,7 @@ class Action:
         self._condition: Action = data.get('condition', None)
         self._actions: list[Action] = []
         self._transfers: list[ActionTransfer] = []
-        self._placeholders: dict = []
+        self._placeholders: dict = {}
 
         command = data.get('command')
         action = data.get('action')
@@ -88,24 +88,8 @@ class Action:
                 if not command:
                     continue
 
-                cmd_data = {
-                    'host': host.host,
-                    'user': host.user,
-                    'port': host.port
-                }
-
-                if data:
-                    cmd_data.update(data)
-
-                if self._placeholders:
-                    # check if data keys are in placeholders
-                    for placeholder in self._placeholders:
-                        if placeholder not in cmd_data.keys():
-                            raise ActionError(f'Placeholder "{placeholder}" must be provided')
-
-                # make sure that placeholders are replaced
-
-                command = self._formatCommand(command, cmd_data)
+                cmd_data = self._fill_placeholders(host, data)
+                command = self._personalize_command(command, cmd_data)
 
                 if self.type == 'test':
                     output = remote_cmd('ssh-bash', (command,), True)
@@ -153,7 +137,29 @@ class Action:
 
         return ActionExec(stdout=stdout, stderr=stderr, return_code=0)
     
-    def _formatCommand(self, command:str, placeholders:dict) -> str:
+    def _fill_placeholders(self, host: Remote, data: dict) -> dict:
+        default_data = {
+            'host': host.host,
+            'user': host.user,
+            'port': host.port
+        }
+
+        if not self._placeholders:
+            return default_data
+        
+        cmd_data = {**default_data}
+        
+        for (p_key, p_val) in self._placeholders.items():
+            if data.get(p_key):
+                cmd_data[p_key] = data[p_key]
+            elif p_val:
+                cmd_data[p_key] = p_val
+            else:
+                raise ActionError(f'Placeholder "{p_key}" must be provided')
+
+        return cmd_data
+
+    def _personalize_command(self, command: str, placeholders: dict) -> str:
         # placeholder format is {{PLACEHOLDER:variablename}}
         for placeholder in placeholders.keys():
             command = command.replace('{{PLACEHOLDER:' + placeholder + '}}', str(placeholders[placeholder]))

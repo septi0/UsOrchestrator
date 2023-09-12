@@ -232,12 +232,14 @@ class UsOrchestratorManager:
         try:
             if not self._routines_config.has_section(routine):
                 raise NoSectionError(routine)
+            
+            placeholders = self._process_placeholders(self._routines_config.get(routine, 'placeholders', fallback=''))
 
             action = Action('routine', routine)
             action.setSpliceLocalhost(self._routines_config.getboolean(routine, 'splice_localhost', fallback=False))
             action.addCommand(self._routines_config.get(routine, 'command', fallback='').strip())
             action.addTransfer(self._routines_config.get(routine, 'transfer', fallback=''))
-            action.setPlaceholders(shlex.split(self._routines_config.get(routine, 'placeholders', fallback='')))
+            action.setPlaceholders(placeholders)
             
             # add condition action (only one of iftest, ifroutine, ifcommand option is supported, not multiple)
             if self._routines_config.has_option(routine, 'iftest'):
@@ -307,6 +309,25 @@ class UsOrchestratorManager:
         self._logger.debug(f'Discovered "{action.name}" transfer action')
 
         return action
+    
+    def _process_placeholders(self, placeholders: str) -> dict:
+        placeholders = shlex.split(placeholders)
+
+        if not placeholders:
+            return {}
+        
+        placeholders_dict = {}
+
+        for placeholder in placeholders:
+            try:
+                key, value = placeholder.split('=', 1)
+            except ValueError as e:
+                key = placeholder
+                value = None
+
+            placeholders_dict[key] = value
+
+        return placeholders_dict
 
     # handle actions for all hosts
     def _handle_actions(self, hosts: list[Remote], actions: list[Action], data: dict = None) -> None:
