@@ -142,10 +142,6 @@ class Action:
                 stdout += runned_action.stdout
                 stderr += runned_action.stderr
 
-        # filter empty stdout / stderr
-        stdout = list(filter(None, stdout))
-        stderr = list(filter(None, stderr))
-
         return ActionExec(stdout=stdout, stderr=stderr, return_code=0)
     
     def _define_cmd_variables(self, host: Remote, data: dict) -> dict:
@@ -186,7 +182,7 @@ class Action:
 
             # make sure that value is quoted
             if value == safe_value:
-                safe_value = f'"{safe_value}"'
+                safe_value = f"'{safe_value}'"
 
             out_command.append(f'{name}={safe_value}')
 

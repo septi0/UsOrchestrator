@@ -380,14 +380,14 @@ class UsOrchestratorManager:
             else:
                 log_msg += f'"{action.name}" {action.type} on "{host.host}"'
             
-            (stdout, stderr) = self._set_action_texts(action_exec)
+            (stdout, stderr) = self._filter_action_output(action_exec)
 
             header = log_msg
             print(wrap_dash(header, stdout, stderr))
 
-    def _set_action_texts(self, action_exec: ActionExec) -> tuple:
-        stdout = action_exec.stdout
-        stderr = action_exec.stderr
+    def _filter_action_output(self, action_exec: ActionExec) -> tuple:
+        stdout = list(filter(None, action_exec.stdout))
+        stderr = list(filter(None, action_exec.stderr))
 
         if not stdout and action_exec.return_code == 0:
             stdout = ['Return code: 0']

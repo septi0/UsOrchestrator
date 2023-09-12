@@ -14,10 +14,11 @@ def wrap_dash(header: str, stdout: list, stderr: list) -> str:
         input = ' '
 
     length = len(max(input, key=len))
-    if(len(header) > length): length = len(header)
+    if(len(header) > length):
+        length = len(header)
 
     ret += '+' + '-' * length + '+\n'
-    ret += f'|{header.ljust(length)}|\n'
+    ret += f'|{header.ljust(length + 11)}|\n'
     ret += '+' + '-' * length + '+\n'
 
     for line in input:
