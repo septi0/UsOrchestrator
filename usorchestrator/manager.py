@@ -109,11 +109,12 @@ class UsOrchestratorManager:
 
         logger = logging.getLogger()
         logger.setLevel(levels[log_level])
+        
+        if not log_file:
+            logger.addHandler(logging.NullHandler())
+            return logger
 
-        if log_file:
-            handler = logging.FileHandler(log_file)
-        else:
-            handler = logging.StreamHandler()
+        handler = logging.FileHandler(log_file)
 
         handler.setLevel(levels[log_level])
         handler.setFormatter(logging.Formatter(format))
