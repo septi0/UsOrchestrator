@@ -1,4 +1,5 @@
 __app_name__ = "UsOrchestrator"
+__package_name__ = "usorchestrator"
 __version__ = "0.3.1"
 __description__ = "A tool to automate system administration tasks on multi-hosts environments"
 __author__ = "Septimiu Ujica"
