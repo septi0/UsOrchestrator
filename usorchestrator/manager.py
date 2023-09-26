@@ -390,10 +390,10 @@ class UsOrchestratorManager:
         stdout = list(filter(None, action_exec.stdout))
         stderr = list(filter(None, action_exec.stderr))
 
-        if not stdout and action_exec.return_code == 0:
-            stdout = ['Return code: 0']
-
-        if not stderr and action_exec.return_code != 0:
-            stderr = [f'Return code: {action_exec.return_code}']
+        if not stdout and not stderr:
+            if action_exec.return_code == 0:
+                stdout = ['Return code: 0']
+            else:
+                stderr = [f'Return code: {action_exec.return_code}']
 
         return (stdout, stderr)
