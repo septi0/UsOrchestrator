@@ -394,6 +394,6 @@ class UsOrchestratorManager:
             stdout = ['Return code: 0']
 
         if not stderr and action_exec.return_code != 0:
-            stdout = [f'Return code: {action_exec.return_code}']
+            stderr = [f'Return code: {action_exec.return_code}']
 
         return (stdout, stderr)
