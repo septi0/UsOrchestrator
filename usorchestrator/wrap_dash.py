@@ -24,7 +24,7 @@ def wrap_dash(header: str, stdout: list, stderr: list) -> str:
         if len(line) > length:
             length = len(line)
 
-    if(len(header) > length):
+    if header_len > length:
         length = len(header)
 
     ret += '+' + '-' * length + '+\n'
