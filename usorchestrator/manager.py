@@ -236,12 +236,14 @@ class UsOrchestratorManager:
                 raise NoSectionError(routine)
             
             variables = self._process_variables(self._routines_config.get(routine, 'variables', fallback=''))
+            requires = shlex.split(self._routines_config.get(routine, 'requires', fallback=''))
 
             action = Action('routine', routine)
             action.setSpliceLocalhost(self._routines_config.getboolean(routine, 'splice_localhost', fallback=False))
             action.addCommand(self._routines_config.get(routine, 'command', fallback='').strip())
             action.addTransfer(self._routines_config.get(routine, 'transfer', fallback=''))
             action.setVariables(variables)
+            action.setRequires(requires)
             
             # add condition action (only one of iftest, ifroutine, ifcommand option is supported, not multiple)
             if self._routines_config.has_option(routine, 'iftest'):

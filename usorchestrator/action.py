@@ -20,6 +20,7 @@ class Action:
         self._actions: list[Action] = []
         self._transfers: list[ActionTransfer] = []
         self._variables: dict = {}
+        self._requires: list = []
 
         command = data.get('command')
         action = data.get('action')
@@ -63,6 +64,9 @@ class Action:
     def setVariables(self, variables:dict) -> None:
         self._variables = variables
 
+    def setRequires(self, requires:list) -> None:
+        self._requires = requires
+
     def getActionsNames(self) -> list:
         return [action.name for action in self._actions]
 
@@ -86,22 +90,25 @@ class Action:
 
         # end leaf action
         if self._commands:
-            for command in self._commands:
-                if not command:
+            for cmd in self._commands:
+                if not cmd:
                     continue
 
                 cmd_variables = self._define_cmd_variables(host, data)
-                command = self._add_cmd_variables(command, cmd_variables)
+                cmd_parts = self._init_cmd(cmd_variables)
+                
+                cmd_parts.append(cmd)
+                cmd_to_exec = '\n'.join(cmd_parts)              
 
                 if self.type == 'test':
-                    output = remote_cmd('ssh-bash', (command,), True)
+                    output = remote_cmd('ssh-bash', (cmd_to_exec,), True)
 
                     if output['return_code'] == 0:
                         output['stdout'] = 'Test passed' + (':\n' + output['stdout'] if output['stdout'] else '')
                     else:
                         output['stderr'] = 'Test failed' + (':\n' + output['stderr'] if output['stderr'] else '')
                 else:
-                    output = remote_cmd('ssh-bash', (command,), host.local, host.host, host.user, host.port, host.password)
+                    output = remote_cmd('ssh-bash', (cmd_to_exec,), host.local, host.host, host.user, host.port, host.password)
 
                 stdout.append(output['stdout'])
                 stderr.append(output['stderr'])
@@ -166,29 +173,34 @@ class Action:
 
         return cmd_variables
 
-    def _add_cmd_variables(self, command: str, variables: dict) -> str:
-        if not variables:
-            return command
-        
-        out_command = []
+    def _init_cmd(self, variables: dict) -> list:
+        cmd_parts = []
 
-        for (name, value) in variables.items():
-            if not self._valid_bash_variable_name(name):
-                raise ActionError(f'Variable "{name}" is not a valid bash variable name')
-            
-            value = str(value)
-            
-            safe_value = shlex.quote(value)
+        cmd_parts.append('set -e')
 
-            # make sure that value is quoted
-            if value == safe_value:
-                safe_value = f"'{safe_value}'"
+        # add check for required programs
+        if self._requires:
+            for require in self._requires:
+                require_safe = shlex.quote(require)
+                cmd_parts.append(f'command -v {require_safe} > /dev/null 2>&1 || {{ echo >&2 "Required command {require_safe} not found"; exit 1; }}')
 
-            out_command.append(f'{name}={safe_value}')
+        # add variables
+        if variables:
+            for (name, value) in variables.items():
+                if not self._valid_bash_variable_name(name):
+                    raise ActionError(f'Variable "{name}" is not a valid bash variable name')
+                
+                value = str(value)
+                
+                safe_value = shlex.quote(value)
 
-        out_command.append(command)
+                # make sure that value is quoted
+                if value == safe_value:
+                    safe_value = f"'{safe_value}'"
 
-        return '\n'.join(out_command)
+                cmd_parts.append(f'{name}={safe_value}')
+
+        return cmd_parts
     
     def _valid_bash_variable_name(self, name: str) -> bool:
         if not name:
