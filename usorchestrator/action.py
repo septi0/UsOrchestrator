@@ -20,7 +20,7 @@ class Action:
         self._actions: list[Action] = []
         self._transfers: list[ActionTransfer] = []
         self._variables: dict = {}
-        self._requires: list = []
+        self._requirements: list = []
 
         command = data.get('command')
         action = data.get('action')
@@ -64,8 +64,8 @@ class Action:
     def setVariables(self, variables:dict) -> None:
         self._variables = variables
 
-    def setRequires(self, requires:list) -> None:
-        self._requires = requires
+    def setRequirements(self, requirements: list) -> None:
+        self._requirements = requirements
 
     def getActionsNames(self) -> list:
         return [action.name for action in self._actions]
@@ -179,10 +179,10 @@ class Action:
         cmd_parts.append('set -e')
 
         # add check for required programs
-        if self._requires:
-            for require in self._requires:
-                require_safe = shlex.quote(require)
-                cmd_parts.append(f'command -v {require_safe} > /dev/null 2>&1 || {{ echo >&2 "Required command {require_safe} not found"; exit 1; }}')
+        if self._requirements:
+            for requirement in self._requirements:
+                require_safe = shlex.quote(requirement)
+                cmd_parts.append(f'command -v {require_safe} > /dev/null 2>&1 || {{ echo >&2 "Required command {require_safe} not found"; exit 999; }}')
 
         # add variables
         if variables:

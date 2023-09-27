@@ -61,6 +61,7 @@ class UsOrchestratorManager:
         hosts: list[Remote] = []
         actions: list[Action] = []
         data: dict = {}
+        filters: list = []
 
         if params.get('hosts'):
             hosts += self._process_hosts(params['hosts'])
@@ -87,7 +88,10 @@ class UsOrchestratorManager:
         if params.get('data'):
             data = self._parse_data(params['data'])
 
-        self._handle_actions(hosts, actions, data)
+        if params.get('filters'):
+            filters = self._parse_filters(params['filters'])
+
+        self._handle_actions(hosts, actions, data=data, filters=filters)
         sys.exit(0)
 
     def _cleanup(self) -> None:
@@ -163,17 +167,27 @@ class UsOrchestratorManager:
                 key, value = data_file.split('=', 1)
             except ValueError as e:
                 print(f'Invalid data format: {e}')
-                self._logger.exception(e, exc_info=True)
+                self._logger.exception(f'Invalid data format: {e}', exc_info=True)
                 sys.exit(1)
 
             # validate key
             if not key:
                 print(f'Invalid data format: key is empty')
+                self._logger.error(f'Invalid data format: key is empty')
                 sys.exit(1)
 
             data[key] = value
 
         return data
+    
+    def _parse_filters(self, filters: list[str]) -> list:
+        for filter in filters:
+            if filter not in ['exec_ok', 'exec_failed', 'condition_ok', 'condition_failed']:
+                print(f'Invalid filter: "{filter}"')
+                self._logger.error(f'Invalid filter: "{filter}"')
+                sys.exit(1)
+
+        return filters
 
     # process hosts
     def _process_hosts(self, raw_hosts: list[str]) -> list:
@@ -197,7 +211,7 @@ class UsOrchestratorManager:
                     hosts.append(Remote(host))
             except (NoSectionError, NoOptionError) as e:
                 print(f'Could not extract hosts: {e}')
-                self._logger.exception(e, exc_info=True)
+                self._logger.exception(f'Could not extract hosts: {e}', exc_info=True)
                 sys.exit(1)
 
             self._logger.debug(f'Discovered hosts "{raw_hosts}" from hosts config')
@@ -243,7 +257,7 @@ class UsOrchestratorManager:
             action.addCommand(self._routines_config.get(routine, 'command', fallback='').strip())
             action.addTransfer(self._routines_config.get(routine, 'transfer', fallback=''))
             action.setVariables(variables)
-            action.setRequires(requires)
+            action.setRequirements(requires)
             
             # add condition action (only one of iftest, ifroutine, ifcommand option is supported, not multiple)
             if self._routines_config.has_option(routine, 'iftest'):
@@ -265,7 +279,7 @@ class UsOrchestratorManager:
                     action.addAction(self._process_routine(doroutine_cnf))
         except (NoSectionError, NoOptionError) as e:
             print(f'Could not extract routine: {e}')
-            self._logger.exception(e, exc_info=True)
+            self._logger.exception(f'Could not extract routine: {e}', exc_info=True)
             sys.exit(1)
 
         log_msg = f'Discovered "{action.name}" routine action with commands "{action.commands}", additional actions "{action.getActionsNames()}", condition "{action.getConditionName()}"'
@@ -290,7 +304,7 @@ class UsOrchestratorManager:
             action.addCommand(self._tests_config.get(test, 'command', fallback='').strip())
         except (NoSectionError, NoOptionError) as e:
             print(f'Could not extract test: {e}')
-            self._logger.exception(e, exc_info=True)
+            self._logger.exception(f'Could not extract test: {e}', exc_info=True)
             sys.exit(1)
 
         self._logger.debug(f'Discovered "{action.name}" test action with commands "{action.commands}"')
@@ -334,7 +348,7 @@ class UsOrchestratorManager:
         return variables_dict
 
     # handle actions for all hosts
-    def _handle_actions(self, hosts: list[Remote], actions: list[Action], data: dict = None) -> None:
+    def _handle_actions(self, hosts: list[Remote], actions: list[Action], *, data: dict = None, filters: list = None) -> None:
         self._logger.debug('Starting processing actions on all hosts')
 
         spliced_hosts = []
@@ -344,7 +358,7 @@ class UsOrchestratorManager:
                 if action.splice_localhost and host.local:
                     spliced_hosts.append(host)
                     continue
-                self._handle_action(host, action, data)
+                self._handle_action(host, action, data=data, filters=filters)
 
         for host in spliced_hosts:
             for action in actions:
@@ -352,7 +366,7 @@ class UsOrchestratorManager:
                 self._handle_action(host, action, data)
 
     # handle individual action
-    def _handle_action(self, host: Remote, action: Action, data: dict = None) -> None:
+    def _handle_action(self, host: Remote, action: Action, *, data: dict = None, filters: list = None) -> None:
         if action.type == 'test':
             log_msg = f'Running "{action.name}" {action.type} for "{host.host}"'
         else:
@@ -370,8 +384,23 @@ class UsOrchestratorManager:
         else:
             sys.stdout.write('\033[K')
 
-            if not action_exec.passed_condition:
-                return
+            if filters:
+                skip = True
+
+                if 'exec_ok' in filters and action_exec.return_code == 0:
+                    skip = False
+
+                if 'exec_failed' in filters and action_exec.return_code != 0:
+                    skip = False
+
+                if 'condition_ok' in filters and action_exec.passed_condition:
+                    skip = False
+
+                if 'condition_failed' in filters and not action_exec.passed_condition:
+                    skip = False
+
+                if skip:
+                    return
             
             if action_exec.return_code == 0:
                 log_msg = '\033[0;32m' + '● ' + '\033[0m'
@@ -392,10 +421,14 @@ class UsOrchestratorManager:
         stdout = list(filter(None, action_exec.stdout))
         stderr = list(filter(None, action_exec.stderr))
 
-        if not stdout and not stderr:
-            if action_exec.return_code == 0:
-                stdout = ['Return code: 0']
-            else:
-                stderr = [f'Return code: {action_exec.return_code}']
+        if action_exec.passed_condition:
+            if not stdout and not stderr:
+                if action_exec.return_code == 0:
+                    stdout = ['Return code: 0']
+                else:
+                    stderr = [f'Return code: {action_exec.return_code}']
+        else:
+            stdout = []
+            stderr = ['Skipped. Condition not met']
 
         return (stdout, stderr)

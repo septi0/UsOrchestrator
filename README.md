@@ -88,6 +88,7 @@ Commands:
         -h, --help            show this help message and exit
         --type {hosts_groups,tests,routines}
                               Show informations regarding different action types
+
     orchestrate         Orchestrate actions
       options:
         -h, --help            show this help message and exit
@@ -98,6 +99,9 @@ Commands:
         --routine ROUTINES    Routine to be executed on target hosts
         --test TESTS          Test to be executed against target hosts
         --transfer TRANSFERS  Transfer to be executed on target hosts (<local-path>:<remote-path>)
+        --data DATA           Data for the defined variables for commands
+        --filter {exec_ok,exec_failed,condition_ok,condition_failed}
+                              Filter output
 ```
 
 ## Configuration files
@@ -133,7 +137,7 @@ Section properties:
 - `ifroutine` - Routine that needs to be executed in order for the routine to be executed
 - `ifcommand` - Command that needs to be executed in order for the routine to be executed
 - `doroutines` - Execute another routine(s)
-- `variables` - Variables that can be used in commands
+- `variables` - Variables definition for the routine
 
 For commands / routines used in conjunction with `if` type properties, they must return status `0` in order for the routine to be executed.
 

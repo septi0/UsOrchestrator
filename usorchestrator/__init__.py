@@ -24,7 +24,8 @@ def main():
    orchestrate_parser.add_argument('--routine', dest='routines', help='Routine to be executed on target hosts', action='append')
    orchestrate_parser.add_argument('--test', dest='tests', help='Test to be executed against target hosts', action='append')
    orchestrate_parser.add_argument('--transfer', dest='transfers', help='Transfer to be executed on target hosts (<local-path>:<remote-path>)', action='append')
-   orchestrate_parser.add_argument('--data', dest='data', help='Placeholder data to be used in commands', action='append')
+   orchestrate_parser.add_argument('--data', dest='data', help='Data for the defined variables for commands', action='append')
+   orchestrate_parser.add_argument('--filter', dest='filters', help='Filter output', action='append', choices=['exec_ok', 'exec_failed', 'condition_ok', 'condition_failed'])
 
    args = parser.parse_args()
 
@@ -32,13 +33,11 @@ def main():
       parser.print_help()
       sys.exit()
 
-   options = {}
-
-   options['log_file'] = args.log_file
-   options['log_level'] = args.log_level
-
    try:
-      usorchestrator = UsOrchestratorManager(options)
+      usorchestrator = UsOrchestratorManager({
+         'log_file': args.log_file,
+         'log_level': args.log_level,
+      })
    except UsOrchestratorConfigError as e:
       print(f"Config error: {e}\nCheck documentation for more information on how to configure UsOrchestrator")
       sys.exit(2)
@@ -46,14 +45,13 @@ def main():
    if args.command == 'show':
       usorchestrator.show(args.type)
    elif args.command == 'orchestrate':
-      options = {}
-
-      options['hosts'] = args.hosts
-      options['hosts_groups'] = args.hosts_groups
-      options['commands'] = args.commands
-      options['routines'] = args.routines
-      options['tests'] = args.tests
-      options['transfers'] = args.transfers
-      options['data'] = args.data
-
-      usorchestrator.orchestrate(options)
+      usorchestrator.orchestrate({
+         'hosts': args.hosts,
+         'hosts_groups': args.hosts_groups,
+         'commands': args.commands,
+         'routines': args.routines,
+         'tests': args.tests,
+         'transfers': args.transfers,
+         'data': args.data,
+         'filters': args.filters,
+      })
