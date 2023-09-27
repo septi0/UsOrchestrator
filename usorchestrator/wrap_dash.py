@@ -20,9 +20,11 @@ def wrap_dash(header: str, stdout: list, stderr: list) -> str:
     for line in input:
         # replace whitespaceces from the end of the line
         # replace tabs with 4 spaces
-        input_safe.append(line.rstrip().replace('\t', '    '))
-        if len(line) > length:
-            length = len(line)
+        line_safe = line.rstrip().replace('\t', '    ')
+        input_safe.append(line_safe)
+
+        if len(line_safe) > length:
+            length = len(line_safe)
 
     if header_len > length:
         length = header_len

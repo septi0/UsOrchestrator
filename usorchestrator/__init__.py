@@ -25,7 +25,7 @@ def main():
    orchestrate_parser.add_argument('--test', dest='tests', help='Test to be executed against target hosts', action='append')
    orchestrate_parser.add_argument('--transfer', dest='transfers', help='Transfer to be executed on target hosts (<local-path>:<remote-path>)', action='append')
    orchestrate_parser.add_argument('--data', dest='data', help='Data for the defined variables for commands', action='append')
-   orchestrate_parser.add_argument('--filter', dest='filters', help='Filter output', action='append', choices=['exec_ok', 'exec_failed', 'condition_ok', 'condition_failed'])
+   orchestrate_parser.add_argument('--filter', dest='filters', help='Filter hosts output', action='append', choices=['exec_ok', 'exec_failed', 'condition_ok', 'condition_failed'])
 
    args = parser.parse_args()
 

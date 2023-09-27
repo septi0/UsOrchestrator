@@ -101,7 +101,7 @@ Commands:
         --transfer TRANSFERS  Transfer to be executed on target hosts (<local-path>:<remote-path>)
         --data DATA           Data for the defined variables for commands
         --filter {exec_ok,exec_failed,condition_ok,condition_failed}
-                              Filter output
+                              Filter hosts output
 ```
 
 ## Configuration files
