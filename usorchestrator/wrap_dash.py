@@ -11,7 +11,7 @@ def wrap_dash(header: str, stdout: list, stderr: list) -> str:
     if not input:
         input = ' '
 
-    header_len = len(header) - 11
+    header_len = len(header) + 11
     input = input.splitlines()
     length = 0
     input_safe = []
@@ -25,7 +25,7 @@ def wrap_dash(header: str, stdout: list, stderr: list) -> str:
             length = len(line)
 
     if header_len > length:
-        length = len(header)
+        length = header_len
 
     ret += '+' + '-' * length + '+\n'
     ret += f'|{header.ljust(length + 11)}|\n'
