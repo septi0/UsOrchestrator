@@ -7,13 +7,23 @@ def wrap_dash(header: str, stdout: list, stderr: list) -> str:
     input = stdout_str
     if stderr_str:
         input = input + ('\n' if input else '') + stderr_str
-        
-    input = input.splitlines()
 
     if not input:
         input = ' '
 
-    length = len(max(input, key=len))
+    # split input into lines
+    input = input.splitlines()
+    length = 0
+    input_safe = []
+
+    # process each line
+    for line in input:
+        # replace whitespaceces from the end of the line
+        # replace tabs with 4 spaces
+        input_safe.append(line.rstrip().replace('\t', '    '))
+        if len(line) > length:
+            length = len(line)
+
     if(len(header) > length):
         length = len(header)
 
@@ -21,7 +31,7 @@ def wrap_dash(header: str, stdout: list, stderr: list) -> str:
     ret += f'|{header.ljust(length + 11)}|\n'
     ret += '+' + '-' * length + '+\n'
 
-    for line in input:
+    for line in input_safe:
         ret += f'|{line.ljust(length)}|\n'
 
     ret += '+' + '-' * length + '+\n'
