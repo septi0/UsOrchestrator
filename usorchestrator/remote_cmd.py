@@ -9,7 +9,7 @@ def remote_cmd(protocol: str, action: tuple[str], local:bool, host:str = '', use
     if password:
         remote_cmd_prefix += ['sshpass', '-p', password]
     else:
-        ssh_opts += ['-o', 'PasswordAuthentication=No', '-o', 'BatchMode=yes']
+        ssh_opts += ['-o', 'BatchMode=yes']
 
     if protocol == 'ssh-bash':
         bash_command = ['bash', '-c', action[0]]
