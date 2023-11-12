@@ -392,13 +392,13 @@ class UsOrchestratorManager:
         stdout = list(filter(None, action_exec.stdout))
         stderr = list(filter(None, action_exec.stderr))
 
-        if not stdout and not stderr:
-            if action_exec.return_code == 0:
-                stdout = ['Return code 0']
-            else:
-                stderr = [f'Return code {action_exec.return_code}']
-        
-        if not action_exec.passed_condition:
+        if action_exec.passed_condition:
+            if not stdout and not stderr:
+                if action_exec.return_code == 0:
+                    stdout = ['Return code 0']
+                else:
+                    stderr = [f'Return code {action_exec.return_code}']
+        else:
             stdout = [f'Skipped. Condition not met', *stdout]
 
         return (stdout, stderr)
