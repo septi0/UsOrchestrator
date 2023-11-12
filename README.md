@@ -99,7 +99,7 @@ Commands:
         --routine ROUTINES    Routine to be executed on target hosts
         --test TESTS          Test to be executed against target hosts
         --transfer TRANSFERS  Transfer to be executed on target hosts (<local-path>:<remote-path>)
-        --data DATA           Data for the defined variables for commands
+        --data DATA           Data to be passed to the given routine (key=value)
         --filter {exec_ok,exec_failed,condition_ok,condition_failed}
                               Filter hosts output
 ```
@@ -137,7 +137,8 @@ Section properties:
 - `ifroutine` - Routine that needs to be executed in order for the routine to be executed
 - `ifcommand` - Command that needs to be executed in order for the routine to be executed
 - `doroutines` - Execute another routine(s)
-- `variables` - Variables definition for the routine
+- `data` - Allowed data to be passed to the command (key=default_value)
+- `exec-mode` (remote|local) - Type of the execution (execute on remote hosts or on localhost against the remote hosts)
 
 For commands / routines used in conjunction with `if` type properties, they must return status `0` in order for the routine to be executed.
 
@@ -157,7 +158,7 @@ Section properties:
 
 The command must return status `0` in order for the test to pass.
 
-Available default variables:
+Available default data:
 - `{target_host}` - Host on which the test is executed
 - `{target_user}` - User defined in the configuration file
 - `{target_port}` - Port defined in the configuration file

@@ -15,11 +15,12 @@ class Action:
         self._name: str = action_name
 
         self._splice_localhost: bool = data.get('splice_localhost', False)
+        self._exec_mode: str = data.get('exec_mode', 'remote')
         self._commands: list[str] = []
         self._condition: Action = data.get('condition', None)
         self._actions: list[Action] = []
         self._transfers: list[ActionTransfer] = []
-        self._variables: dict = {}
+        self._data_definition: dict = {}
         self._requirements: list = []
 
         command = data.get('command')
@@ -43,11 +44,30 @@ class Action:
         return self._splice_localhost
     
     @property
+    def exec_mode(self) -> str:
+        return self._exec_mode
+    
+    @property
     def commands(self) -> list[str]:
         return self._commands
+    
+    @property
+    def condition(self) -> 'Action':
+        return self._condition
+    
+    @property
+    def actions(self) -> list['Action']:
+        return self._actions
+    
+    @property
+    def transfers(self) -> list['ActionTransfer']:
+        return self._transfers
 
     def setSpliceLocalhost(self, splice_localhost:bool) -> None:
         self._splice_localhost = splice_localhost
+
+    def setExecMode(self, exec_mode:str) -> None:
+        self._exec_mode = exec_mode
 
     def addCommand(self, command:str) -> None:
         self._commands.append(command)
@@ -61,8 +81,8 @@ class Action:
     def addTransfer(self, transfer:ActionTransfer) -> None:
         self._transfers.append(transfer)
 
-    def setVariables(self, variables:dict) -> None:
-        self._variables = variables
+    def setDataDefinition(self, data:dict) -> None:
+        self._data_definition = data
 
     def setRequirements(self, requirements: list) -> None:
         self._requirements = requirements
@@ -98,17 +118,14 @@ class Action:
                 cmd_parts = self._init_cmd(cmd_variables)
                 
                 cmd_parts.append(cmd)
-                cmd_to_exec = '\n'.join(cmd_parts)              
+                cmd_to_exec = '\n'.join(cmd_parts)
 
-                if self.type == 'test':
+                if self._exec_mode == 'local':
                     output = remote_cmd('ssh-bash', (cmd_to_exec,), True)
-
-                    if output['return_code'] == 0:
-                        output['stdout'] = 'Test passed' + (':\n' + output['stdout'] if output['stdout'] else '')
-                    else:
-                        output['stderr'] = 'Test failed' + (':\n' + output['stderr'] if output['stderr'] else '')
-                else:
+                elif self._exec_mode == 'remote':
                     output = remote_cmd('ssh-bash', (cmd_to_exec,), host.local, host.host, host.user, host.port, host.password)
+                else:
+                    raise ActionError(f'Unknown exec mode "{self._exec_mode}"')
 
                 stdout.append(output['stdout'])
                 stderr.append(output['stderr'])
@@ -158,12 +175,12 @@ class Action:
             'target_port': host.port
         }
 
-        if not self._variables:
+        if not self._data_definition:
             return default_variables
         
         cmd_variables = {**default_variables}
         
-        for (name, default_value) in self._variables.items():
+        for (name, default_value) in self._data_definition.items():
             if data.get(name):
                 cmd_variables[name] = data[name]
             elif default_value:
@@ -182,7 +199,7 @@ class Action:
         if self._requirements:
             for requirement in self._requirements:
                 require_safe = shlex.quote(requirement)
-                cmd_parts.append(f'command -v {require_safe} > /dev/null 2>&1 || {{ echo >&2 "Required command {require_safe} not found"; exit 999; }}')
+                cmd_parts.append(f'command -v {require_safe} > /dev/null 2>&1 || {{ echo >&2 "Required command \\"{require_safe}\\" not found"; exit 999; }}')
 
         # add variables
         if variables:

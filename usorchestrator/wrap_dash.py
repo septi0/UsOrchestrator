@@ -1,3 +1,5 @@
+import re
+
 def wrap_dash(header: str, stdout: list, stderr: list) -> str:
     ret = ''
 
@@ -11,7 +13,8 @@ def wrap_dash(header: str, stdout: list, stderr: list) -> str:
     if not input:
         input = ' '
 
-    header_len = len(header) - 11
+    # get length of the header but without the possible color codes (ANSI)
+    header_len = len(normalize_str(header))
     input = input.splitlines()
     length = 0
     input_safe = []
@@ -22,20 +25,28 @@ def wrap_dash(header: str, stdout: list, stderr: list) -> str:
         # replace tabs with 4 spaces
         line_safe = line.rstrip().replace('\t', '    ')
         input_safe.append(line_safe)
+        line_safe_len = len(normalize_str(line_safe))
 
-        if len(line_safe) > length:
-            length = len(line_safe)
+        if line_safe_len > length:
+            length = line_safe_len
 
     if header_len > length:
         length = header_len
 
     ret += '+' + '-' * length + '+\n'
-    ret += f'|{header.ljust(length + 11)}|\n'
+    ret += f'|{header.ljust(gen_ljust_width(header, length))}|\n'
     ret += '+' + '-' * length + '+\n'
 
     for line in input_safe:
-        ret += f'|{line.ljust(length)}|\n'
+        ret += f'|{line.ljust(gen_ljust_width(line, length))}|\n'
 
     ret += '+' + '-' * length + '+\n'
     
     return ret
+
+def normalize_str(input: str) -> str:
+    # remove ANSI color codes / escape sequences
+    return re.sub(r'\x1b[^m]*m', '', input)
+
+def gen_ljust_width(input: str, length: int) -> int:
+    return length + (len(input) - len(normalize_str(input)))

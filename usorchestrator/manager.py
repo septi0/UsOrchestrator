@@ -24,15 +24,11 @@ class UsOrchestratorManager:
 
         self._hosts_config: RawConfigParser = self._parse_config('hosts')
         self._routines_config: RawConfigParser = self._parse_config('routines')
-        self._tests_config: RawConfigParser = self._parse_config('tests')
 
     def show(self, show_type: str) -> None:
         if show_type == 'hosts_groups':
             hosts_sections = self._hosts_config.sections()
             print(f'Available host groups: {hosts_sections}')
-        elif show_type == 'tests':
-            tests_sections = self._tests_config.sections()
-            print(f'Available tests: {tests_sections}')
         elif show_type == 'routines':
             routines_sections = self._routines_config.sections()
             print(f'Available routines: {routines_sections}')
@@ -72,8 +68,6 @@ class UsOrchestratorManager:
             actions += self._process_commands(params['commands'])
         if params.get('routines'):
             actions += self._process_routines(params['routines'])
-        if params.get('tests'):
-            actions += self._process_tests(params['tests'])
         if params.get('transfers'):
             actions += self._process_transfers(params['transfers'])
 
@@ -82,7 +76,7 @@ class UsOrchestratorManager:
             sys.exit(1)
 
         if not actions:
-            print('At least one of the following options for actions execution must be provided: "--command", "--routine", "--test", "--transfer"')
+            print('At least one of the following options for actions execution must be provided: "--command", "--routine", "--transfer"')
             sys.exit(1)
 
         if params.get('data'):
@@ -249,21 +243,22 @@ class UsOrchestratorManager:
             if not self._routines_config.has_section(routine):
                 raise NoSectionError(routine)
             
-            variables = self._process_variables(self._routines_config.get(routine, 'variables', fallback=''))
+            data_definition = self._process_data_definition(self._routines_config.get(routine, 'data', fallback=''))
             requires = shlex.split(self._routines_config.get(routine, 'requires', fallback=''))
 
             action = Action('routine', routine)
+
+            # set action options
+            action.setExecMode(self._routines_config.get(routine, 'exec-mode', fallback='remote'))
             action.setSpliceLocalhost(self._routines_config.getboolean(routine, 'splice_localhost', fallback=False))
+
+            # set action commands and requirements
             action.addCommand(self._routines_config.get(routine, 'command', fallback='').strip())
             action.addTransfer(self._routines_config.get(routine, 'transfer', fallback=''))
-            action.setVariables(variables)
+            action.setDataDefinition(data_definition)
             action.setRequirements(requires)
             
-            # add condition action (only one of iftest, ifroutine, ifcommand option is supported, not multiple)
-            if self._routines_config.has_option(routine, 'iftest'):
-                iftest_cnf = self._routines_config.get(routine, 'iftest')
-                action.setCondition(self._process_test(iftest_cnf))
-
+            # add condition action (only one of ifroutine, ifcommand option is supported, not multiple)
             if self._routines_config.has_option(routine, 'ifroutine'):
                 ifroutine_cnf = self._routines_config.get(routine, 'ifroutine')
                 action.setCondition(self._process_routine(ifroutine_cnf))
@@ -287,30 +282,6 @@ class UsOrchestratorManager:
 
         return action
 
-    # process tests
-    def _process_tests(self, tests: list[str]) -> list[Action]:
-        actions = []
-
-        for test in tests:
-            actions.append(self._process_test(test))
-
-        return actions
-    
-    def _process_test(self, test: str) -> Action:
-        try:
-            if not self._tests_config.has_section(test): raise NoSectionError(test)
-
-            action = Action('test', test)
-            action.addCommand(self._tests_config.get(test, 'command', fallback='').strip())
-        except (NoSectionError, NoOptionError) as e:
-            print(f'Could not extract test: {e}')
-            self._logger.exception(f'Could not extract test: {e}', exc_info=True)
-            sys.exit(1)
-
-        self._logger.debug(f'Discovered "{action.name}" test action with commands "{action.commands}"')
-
-        return action
-
     # process transfers
     def _process_transfers(self, transfers: list[str]) -> list[Action]:
         actions = []
@@ -328,24 +299,24 @@ class UsOrchestratorManager:
 
         return action
     
-    def _process_variables(self, variables_raw: str) -> dict:
-        variables = shlex.split(variables_raw)
+    def _process_data_definition(self, data_raw: str) -> dict:
+        data = shlex.split(data_raw)
 
-        if not variables:
+        if not data:
             return {}
         
-        variables_dict = {}
+        data_dict = {}
 
-        for variable in variables:
+        for row in data:
             try:
-                key, value = variable.split('=', 1)
+                key, value = row.split('=', 1)
             except ValueError as e:
-                key = variable
+                key = row
                 value = None
 
-            variables_dict[key] = value
+            data_dict[key] = value
 
-        return variables_dict
+        return data_dict
 
     # handle actions for all hosts
     def _handle_actions(self, hosts: list[Remote], actions: list[Action], *, data: dict = None, filters: list = None) -> None:
@@ -367,10 +338,7 @@ class UsOrchestratorManager:
 
     # handle individual action
     def _handle_action(self, host: Remote, action: Action, *, data: dict = None, filters: list = None) -> None:
-        if action.type == 'test':
-            log_msg = f'Running "{action.name}" {action.type} for "{host.host}"'
-        else:
-            log_msg = f'Running "{action.name}" {action.type} on "{host.host}"'
+        log_msg = f'Running "{action.name}" {action.type} on "{host.host}"'
 
         self._logger.debug(log_msg)
         sys.stdout.write(('● ' + log_msg + ' ...\r'))
@@ -402,33 +370,35 @@ class UsOrchestratorManager:
                 if skip:
                     return
             
+            # colorize header
             if action_exec.return_code == 0:
-                log_msg = '\033[0;32m' + '● ' + '\033[0m'
+                header = '\033[0;32m' + '● ' + '\033[0m'
             else:
-                log_msg = '\033[0;31m' + '● ' + '\033[0m'
+                if not action_exec.passed_condition:
+                    header = '\033[0;33m' + '● ' + '\033[0m'
+                else:
+                    header = '\033[0;31m' + '● ' + '\033[0m'
             
-            if action.type == 'test':
-                log_msg += f'"{action.name}" {action.type} for "{host.host}"'
-            else:
-                log_msg += f'"{action.name}" {action.type} on "{host.host}"'
+            header += f'"{action.name}" {action.type} for "{host.host}"'
             
             (stdout, stderr) = self._filter_action_output(action_exec)
 
-            header = log_msg
+            # colorize stderr
+            stderr = [f'\033[91m{line}\033[0m' for line in stderr]
+
             print(wrap_dash(header, stdout, stderr))
 
     def _filter_action_output(self, action_exec: ActionExec) -> tuple:
         stdout = list(filter(None, action_exec.stdout))
         stderr = list(filter(None, action_exec.stderr))
 
-        if action_exec.passed_condition:
-            if not stdout and not stderr:
-                if action_exec.return_code == 0:
-                    stdout = ['Return code: 0']
-                else:
-                    stderr = [f'Return code: {action_exec.return_code}']
-        else:
-            stdout = []
-            stderr = ['Skipped. Condition not met']
+        if not stdout and not stderr:
+            if action_exec.return_code == 0:
+                stdout = ['Return code 0']
+            else:
+                stderr = [f'Return code {action_exec.return_code}']
+        
+        if not action_exec.passed_condition:
+            stdout = [f'Skipped. Condition not met', *stdout]
 
         return (stdout, stderr)
