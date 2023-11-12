@@ -9,7 +9,7 @@ from usorchestrator.action import Action
 from usorchestrator.remote import Remote
 from usorchestrator.action_exec import ActionExec
 from usorchestrator.action_transfer import ActionTransfer
-from usorchestrator.wrap_dash import wrap_dash
+from usorchestrator.action_output import ActionOutput
 
 __all__ = ['UsOrchestratorManager', 'UsOrchestratorConfigError']
 
@@ -338,19 +338,20 @@ class UsOrchestratorManager:
 
     # handle individual action
     def _handle_action(self, host: Remote, action: Action, *, data: dict = None, filters: list = None) -> None:
+        action_output = ActionOutput(action, host)
+        action_output.print_temp_info()
+    
         log_msg = f'Running "{action.name}" {action.type} on "{host.host}"'
-
         self._logger.debug(log_msg)
-        sys.stdout.write(('● ' + log_msg + ' ...\r'))
 
         try:
             action_exec = action.runAction(host, data)
         except Exception as e:
-            sys.stdout.write('\033[K')
+            action_output.reset_temp_info()
             print(f'ERROR: {e}')
             self._logger.exception(e, exc_info=True)
         else:
-            sys.stdout.write('\033[K')
+            action_output.reset_temp_info()
 
             if filters:
                 skip = True
@@ -370,35 +371,4 @@ class UsOrchestratorManager:
                 if skip:
                     return
             
-            # colorize header
-            if action_exec.return_code == 0:
-                header = '\033[0;32m' + '● ' + '\033[0m'
-            else:
-                if not action_exec.passed_condition:
-                    header = '\033[0;33m' + '● ' + '\033[0m'
-                else:
-                    header = '\033[0;31m' + '● ' + '\033[0m'
-            
-            header += f'"{action.name}" {action.type} for "{host.host}"'
-            
-            (stdout, stderr) = self._filter_action_output(action_exec)
-
-            # colorize stderr
-            stderr = [f'\033[91m{line}\033[0m' for line in stderr]
-
-            print(wrap_dash(header, stdout, stderr))
-
-    def _filter_action_output(self, action_exec: ActionExec) -> tuple:
-        stdout = list(filter(None, action_exec.stdout))
-        stderr = list(filter(None, action_exec.stderr))
-
-        if action_exec.passed_condition:
-            if not stdout and not stderr:
-                if action_exec.return_code == 0:
-                    stdout = ['Return code 0']
-                else:
-                    stderr = [f'Return code {action_exec.return_code}']
-        else:
-            stdout = [f'Skipped. Condition not met', *stdout]
-
-        return (stdout, stderr)
+            action_output.print_info(action_exec)

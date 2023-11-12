@@ -114,11 +114,8 @@ class Action:
                 if not cmd:
                     continue
 
-                cmd_variables = self._define_cmd_variables(host, data)
-                cmd_parts = self._init_cmd(cmd_variables)
-                
-                cmd_parts.append(cmd)
-                cmd_to_exec = '\n'.join(cmd_parts)
+                cmd_variables = self._gen_cmd_variables(host, data)
+                cmd_to_exec = self._gen_cmd(cmd_variables, cmd)
 
                 if self._exec_mode == 'local':
                     output = remote_cmd('ssh-bash', (cmd_to_exec,), True)
@@ -168,7 +165,7 @@ class Action:
 
         return ActionExec(stdout=stdout, stderr=stderr, return_code=0)
     
-    def _define_cmd_variables(self, host: Remote, data: dict) -> dict:
+    def _gen_cmd_variables(self, host: Remote, data: dict) -> dict:
         default_variables = {
             'target_host': host.host,
             'target_user': host.user,
@@ -190,7 +187,7 @@ class Action:
 
         return cmd_variables
 
-    def _init_cmd(self, variables: dict) -> list:
+    def _gen_cmd(self, variables: dict, cmd: str) -> str:
         cmd_parts = []
 
         cmd_parts.append('set -e')
@@ -217,10 +214,25 @@ class Action:
 
                 cmd_parts.append(f'{name}={safe_value}')
 
-        return cmd_parts
+        # add command
+        cmd_parts.append(cmd)
+
+        return '\n'.join(cmd_parts)
     
     def _valid_bash_variable_name(self, name: str) -> bool:
         if not name:
             return False
-
-        return re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', name) is not None
+        
+        # disallow reserved keywords as variable names
+        if name in ('case', 'do', 'done', 'elif', 'else', 'esac', 'fi', 'for', 'function', 'if', 'in', 'select', 'then', 'until', 'while'):
+            return False
+        
+        # disallow variable names starting with a digit
+        if name[0].isdigit():
+            return False
+        
+        # disallow variable names containing characters other than letters, digits and underscores
+        if re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', name) is None:
+            return False
+        
+        return True
