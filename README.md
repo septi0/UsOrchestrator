@@ -3,19 +3,19 @@
 ## Description
 
 UsOrchestrator is a tool for orchestrating actions (run commands, transfer files, test states) on multiple remote hosts automatically. It is designed to be used in a multi-host environment, where you have to execute the same actions on multiple hosts. It can be used as a standalone script or as a package.
-Commands and/or transfers can be organized into routines for easier execution, as well as tests for checking the state of the remote hosts.
+Commands and/or transfers can be organized into routines for easier execution.
 Hosts can also be organized into groups for easier orchestration.
 
 ## Features
 
 - Execute commands on remote hosts
+- Execute commands locally against remote hosts
 - Transfer files to remote hosts
-- Execute tests on remote hosts
 - Organize hosts into groups
 - Organize commands and/or transfers into routines
 - Configuration file support
 - Logging
-- Built-in routines and tests
+- Built-in routines
 
 ## Software requirements
 
@@ -86,7 +86,7 @@ Commands:
     show                Show informations regarding different action types
       options:
         -h, --help            show this help message and exit
-        --type {hosts_groups,tests,routines}
+        --type {hosts_groups,routines}
                               Show informations regarding different action types
 
     orchestrate         Orchestrate actions
@@ -97,7 +97,6 @@ Commands:
                               Target hosts group
         --command COMMANDS    Command to be executed on target hosts
         --routine ROUTINES    Routine to be executed on target hosts
-        --test TESTS          Test to be executed against target hosts
         --transfer TRANSFERS  Transfer to be executed on target hosts (<local-path>:<remote-path>)
         --data DATA           Data to be passed to the given routine (key=value)
         --filter {exec_ok,exec_failed,condition_ok,condition_failed}
@@ -133,16 +132,15 @@ Section properties:
 - `command` - Commands to be executed on the remote hosts
 - `transfer` - Files to be transferred to the remote hosts
 - `splice_localhost` - If set to `True`, the commands and transfers on localhost will be executed last
-- `iftest` - Test that needs to be passed in order for the routine to be executed
 - `ifroutine` - Routine that needs to be executed in order for the routine to be executed
 - `ifcommand` - Command that needs to be executed in order for the routine to be executed
 - `doroutines` - Execute another routine(s)
-- `data` - Allowed data to be passed to the command (key=default_value)
+- `data` - Allowed data to be passed to the command (key=value)
 - `exec-mode` (remote|local) - Type of the execution (execute on remote hosts or on localhost against the remote hosts)
 
 For commands / routines used in conjunction with `if` type properties, they must return status `0` in order for the routine to be executed.
 
-**Note!** Only one of `iftest`, `ifroutine`, `ifcommand` option is supported. If more than one is specified, the order of precedence is `ifcommand`, `ifroutine`, `iftest`.
+**Note!** Only one of `ifroutine`, `ifcommand` option is supported. If more than one is specified, the order of precedence is `ifcommand`, `ifroutine`.
 
 Valid format for transfer:
 
@@ -150,16 +148,8 @@ Valid format for transfer:
 <local-path>:<remote-path>
 ```
 
-#### Configuring tests
-Each section in the configuration file is a test. The name of the section is the name of the test that will be specified with the `--test` argument.
-
-Section properties:
-- `command` - Command to be executed against the remote hosts (e.g. `ping`, `nc`, `curl`)
-
-The command must return status `0` in order for the test to pass.
-
-Available default data:
-- `{target_host}` - Host on which the test is executed
+Default variable data:
+- `{target_host}` - Host on which the command is executed
 - `{target_user}` - User defined in the configuration file
 - `{target_port}` - Port defined in the configuration file
 
