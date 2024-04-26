@@ -1,9 +1,9 @@
 from setuptools import setup
 
-# import usbackup_gphotos.info without importing the package
+# import usorchestrator.info without importing the package
 info = {}
 
-with open("usbackup_gphotos/info.py") as fp:
+with open("usorchestrator/info.py") as fp:
     exec(fp.read(), info)
 
 with open("README.md", "r") as f:
